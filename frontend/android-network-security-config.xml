@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Enforce HTTPS for all connections -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust system certificate authorities -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Allow localhost for development ONLY -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android emulator -->
+    </domain-config>
+    
+    <!-- Optional: Certificate pinning for production API -->
+    <!-- Uncomment and configure when deploying to production
+    <domain-config>
+        <domain includeSubdomains="true">api.zkiotchain.com</domain>
+        <pin-set expiration="2026-01-01">
+            <pin digest="SHA-256">YOUR_CERTIFICATE_PIN_HERE</pin>
+            <pin digest="SHA-256">BACKUP_CERTIFICATE_PIN_HERE</pin>
+        </pin-set>
+    </domain-config>
+    -->
+</network-security-config>

@@ -664,6 +664,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    
+    # Strict-Transport-Security (HSTS)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    
+    # Content Security Policy
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    
+    # X-Frame-Options
+    response.headers["X-Frame-Options"] = "DENY"
+    
+    # X-Content-Type-Options
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    
+    # X-XSS-Protection
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    # Referrer-Policy
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    # Permissions-Policy
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    
+    return response
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
