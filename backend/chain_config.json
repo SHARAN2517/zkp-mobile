@@ -1,0 +1,82 @@
+{
+    "networks": {
+        "sepolia": {
+            "name": "Ethereum Sepolia Testnet",
+            "chainId": 11155111,
+            "rpcUrl": "https://rpc.sepolia.org",
+            "explorer": "https://sepolia.etherscan.io",
+            "nativeCurrency": {
+                "name": "Sepolia ETH",
+                "symbol": "ETH",
+                "decimals": 18
+            },
+            "testnet": true,
+            "faucets": [
+                "https://sepoliafaucet.com",
+                "https://faucet.quicknode.com/ethereum/sepolia"
+            ]
+        },
+        "polygonMumbai": {
+            "name": "Polygon Mumbai Testnet",
+            "chainId": 80001,
+            "rpcUrl": "https://rpc-mumbai.maticvigil.com",
+            "explorer": "https://mumbai.polygonscan.com",
+            "nativeCurrency": {
+                "name": "MATIC",
+                "symbol": "MATIC",
+                "decimals": 18
+            },
+            "testnet": true,
+            "faucets": [
+                "https://faucet.polygon.technology"
+            ]
+        },
+        "polygon": {
+            "name": "Polygon Mainnet",
+            "chainId": 137,
+            "rpcUrl": "https://polygon-rpc.com",
+            "explorer": "https://polygonscan.com",
+            "nativeCurrency": {
+                "name": "MATIC",
+                "symbol": "MATIC",
+                "decimals": 18
+            },
+            "testnet": false
+        },
+        "bscTestnet": {
+            "name": "BSC Testnet",
+            "chainId": 97,
+            "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545",
+            "explorer": "https://testnet.bscscan.com",
+            "nativeCurrency": {
+                "name": "BNB",
+                "symbol": "BNB",
+                "decimals": 18
+            },
+            "testnet": true,
+            "faucets": [
+                "https://testnet.binance.org/faucet-smart"
+            ]
+        },
+        "bsc": {
+            "name": "BSC Mainnet",
+            "chainId": 56,
+            "rpcUrl": "https://bsc-dataseed1.binance.org",
+            "explorer": "https://bscscan.com",
+            "nativeCurrency": {
+                "name": "BNB",
+                "symbol": "BNB",
+                "decimals": 18
+            },
+            "testnet": false
+        }
+    },
+    "defaultNetwork": "sepolia",
+    "supportedNetworks": [
+        "sepolia",
+        "polygonMumbai",
+        "polygon",
+        "bscTestnet",
+        "bsc"
+    ]
+}

@@ -6,273 +6,325 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
-  RefreshControl,
+  Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  getPendingData,
-  anchorMerkleRoot,
-  getMerkleBatches,
-  verifyDataIntegrity,
-} from '../../utils/api';
+import { getAllDevices, submitDeviceData, type Device } from '../../utils/api';
 
-export default function VerifyScreen() {
-  const [pendingCount, setPendingCount] = useState(0);
-  const [batches, setBatches] = useState<any[]>([]);
+interface SensorReading {
+  id: string;
+  key: string;
+  value: string;
+  unit: string;
+}
+
+export default function SubmitDataScreen() {
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [showDevicePicker, setShowDevicePicker] = useState(false);
+  const [sensorReadings, setSensorReadings] = useState<SensorReading[]>([
+    { id: '1', key: 'temperature', value: '', unit: '°C' },
+  ]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [anchoring, setAnchoring] = useState(false);
-
-  // Verification form
-  const [dataHash, setDataHash] = useState('');
-  const [batchId, setBatchId] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<any>(null);
-
-  const loadData = async () => {
-    try {
-      const [pendingData, batchesData] = await Promise.all([
-        getPendingData(),
-        getMerkleBatches(),
-      ]);
-      setPendingCount(pendingData.pending_count);
-      setBatches(batchesData.batches);
-    } catch (error) {
-      console.error('Failed to load data:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadDevices();
   }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
+  const loadDevices = async () => {
+    try {
+      const data = await getAllDevices();
+      setDevices(data.devices.filter((d: Device) => d.is_active));
+      if (data.devices.length > 0) {
+        setSelectedDeviceId(data.devices[0].device_id);
+      }
+    } catch (error) {
+      console.error('Failed to load devices:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAnchor = async () => {
-    if (pendingCount === 0) {
-      Alert.alert('No Data', 'No pending data to anchor');
-      return;
-    }
+  const addReading = () => {
+    const newId = (parseInt(sensorReadings[sensorReadings.length - 1].id) + 1).toString();
+    setSensorReadings([
+      ...sensorReadings,
+      { id: newId, key: '', value: '', unit: '' },
+    ]);
+  };
 
-    Alert.alert(
-      'Confirm Anchoring',
-      `Anchor ${pendingCount} data entries to blockchain?\n\nThis will create a Merkle tree and store the root on-chain.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Anchor',
-          onPress: async () => {
-            setAnchoring(true);
-            try {
-              const result = await anchorMerkleRoot();
-              Alert.alert(
-                'Success',
-                `Merkle root anchored!\n\nBatch ID: ${result.batch_id}\nData Count: ${result.data_count}\nGas Used: ${result.blockchain?.gas_used || 'N/A'}`
-              );
-              loadData();
-            } catch (error: any) {
-              Alert.alert('Error', error.response?.data?.detail || 'Anchoring failed');
-            } finally {
-              setAnchoring(false);
-            }
-          },
-        },
-      ]
+  const removeReading = (id: string) => {
+    if (sensorReadings.length > 1) {
+      setSensorReadings(sensorReadings.filter((r) => r.id !== id));
+    }
+  };
+
+  const updateReading = (id: string, field: 'key' | 'value' | 'unit', value: string) => {
+    setSensorReadings(
+      sensorReadings.map((r) => (r.id === id ? { ...r, [field]: value } : r))
     );
   };
 
-  const handleVerify = async () => {
-    if (!dataHash || !batchId) {
-      Alert.alert('Error', 'Please enter both data hash and batch ID');
+  const handleSubmit = async () => {
+    if (!selectedDeviceId) {
+      Alert.alert('Error', 'Please select a device');
       return;
     }
 
-    setVerifying(true);
+    const validReadings = sensorReadings.filter((r) => r.key && r.value);
+    if (validReadings.length === 0) {
+      Alert.alert('Error', 'Please add at least one sensor reading');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const result = await verifyDataIntegrity({
-        data_hash: dataHash,
-        batch_id: parseInt(batchId),
+      // Convert readings to data object
+      const dataObj: any = {};
+      validReadings.forEach((r) => {
+        const numValue = parseFloat(r.value);
+        dataObj[r.key] = isNaN(numValue) ? r.value : numValue;
+        if (r.unit) {
+          dataObj[`${r.key}_unit`] = r.unit;
+        }
       });
-      setVerificationResult(result);
+
+      await submitDeviceData({
+        device_id: selectedDeviceId,
+        data: dataObj,
+      });
+
+      Alert.alert(
+        'Success',
+        'Sensor data submitted successfully! Merkle tree will be created for batch anchoring.'
+      );
+
+      // Reset readings
+      setSensorReadings([{ id: '1', key: 'temperature', value: '', unit: '°C' }]);
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Verification failed');
+      Alert.alert('Error', error.response?.data?.detail || 'Submission failed');
     } finally {
-      setVerifying(false);
+      setSubmitting(false);
     }
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00d4ff" />
+        <ActivityIndicator size="large" color="#0dcaf0" />
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00d4ff" />
-      }
-    >
+    <ScrollView style={styles.container}>
       <View style={styles.content}>
-        {/* Pending Data Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Merkle Tree Anchoring</Text>
-          <View style={styles.pendingCard}>
-            <View style={styles.pendingHeader}>
-              <Ionicons name="time" size={32} color="#ffaa00" />
-              <View style={styles.pendingInfo}>
-                <Text style={styles.pendingCount}>{pendingCount}</Text>
-                <Text style={styles.pendingLabel}>Pending Data Entries</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <Ionicons name="cloud-upload" size={48} color="#0dcaf0" />
+          <Text style={styles.title}>Submit Sensor Data</Text>
+          <Text style={styles.subtitle}>
+            Submit IoT sensor data with Merkle tree anchoring for integrity verification
+          </Text>
+        </View>
+
+        <View style={styles.mainContent}>
+          {/* Left Column - Data Submission */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Data Submission</Text>
+
+            {/* Device Selection */}
+            <Text style={styles.label}>Select Device *</Text>
+            {devices.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="hardware-chip-outline" size={32} color="#666" />
+                <Text style={styles.emptyText}>No active devices found</Text>
+                <Text style={styles.emptySubtext}>Register a device first</Text>
               </View>
-            </View>
-            <Text style={styles.pendingDescription}>
-              These entries are waiting to be batched into a Merkle tree and anchored on the
-              blockchain.
-            </Text>
+            ) : (
+              <TouchableOpacity
+                style={styles.pickerContainer}
+                onPress={() => setShowDevicePicker(true)}
+              >
+                <Text style={styles.pickerText}>
+                  {selectedDeviceId
+                    ? devices.find((d) => d.device_id === selectedDeviceId)?.device_name || 'Choose a registered device...'
+                    : 'Choose a registered device...'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#0dcaf0" />
+              </TouchableOpacity>
+            )}
+
+            {/* Sensor Readings */}
+            <Text style={[styles.label, { marginTop: 24 }]}>Sensor Readings</Text>
+            {sensorReadings.map((reading, index) => (
+              <View key={reading.id} style={styles.readingRow}>
+                <TextInput
+                  style={[styles.input, styles.readingKey]}
+                  value={reading.key}
+                  onChangeText={(value) => updateReading(reading.id, 'key', value)}
+                  placeholder="e.g., temperature"
+                  placeholderTextColor="#666"
+                />
+                <TextInput
+                  style={[styles.input, styles.readingValue]}
+                  value={reading.value}
+                  onChangeText={(value) => updateReading(reading.id, 'value', value)}
+                  placeholder="25.5"
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={[styles.input, styles.readingUnit]}
+                  value={reading.unit}
+                  onChangeText={(value) => updateReading(reading.id, 'unit', value)}
+                  placeholder="°C"
+                  placeholderTextColor="#666"
+                />
+                {sensorReadings.length > 1 && (
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeReading(reading.id)}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#ff0055" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+
+            <TouchableOpacity style={styles.addButton} onPress={addReading}>
+              <Ionicons name="add-circle" size={18} color="#0dcaf0" />
+              <Text style={styles.addButtonText}>Add Reading</Text>
+            </TouchableOpacity>
+
+            {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.anchorButton, anchoring && styles.buttonDisabled]}
-              onPress={handleAnchor}
-              disabled={anchoring || pendingCount === 0}
+              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={submitting || devices.length === 0}
             >
-              {anchoring ? (
+              {submitting ? (
                 <ActivityIndicator color="#000" />
               ) : (
                 <>
-                  <Ionicons name="git-network" size={20} color="#000" />
-                  <Text style={styles.anchorButtonText}>Anchor to Blockchain</Text>
+                  <Ionicons name="git-merge" size={20} color="#000" />
+                  <Text style={styles.submitButtonText}>Create Merkle Tree & Submit</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Recent Batches */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Batches</Text>
-          {batches.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="layers-outline" size={48} color="#444" />
-              <Text style={styles.emptyText}>No batches yet</Text>
+          {/* Right Column - Submission Process */}
+          <View style={styles.processSection}>
+            <Text style={styles.sectionTitle}>Submission Process</Text>
+
+            <View style={styles.stepsList}>
+              <View style={styles.step}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepNumberText}>1</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>Select registered device</Text>
+                </View>
+              </View>
+
+              <View style={styles.step}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepNumberText}>2</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>Add sensor readings</Text>
+                </View>
+              </View>
+
+              <View style={styles.step}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepNumberText}>3</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>System creates Merkle tree</Text>
+                </View>
+              </View>
+
+              <View style={styles.step}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepNumberText}>4</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>Merkle root anchored on blockchain</Text>
+                </View>
+              </View>
+
+              <View style={styles.step}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepNumberText}>5</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>Raw data stored off-chain (IPFS simulation)</Text>
+                </View>
+              </View>
             </View>
-          ) : (
-            batches.slice(0, 5).map((batch, index) => (
-              <View key={index} style={styles.batchCard}>
-                <View style={styles.batchHeader}>
-                  <Ionicons name="layers" size={24} color="#00d4ff" />
-                  <View style={styles.batchInfo}>
-                    <Text style={styles.batchId}>Batch #{batch.batch_id}</Text>
-                    <Text style={styles.batchDate}>
-                      {new Date(batch.timestamp * 1000).toLocaleString()}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.batchDetails}>
-                  <View style={styles.batchRow}>
-                    <Text style={styles.batchLabel}>Data Count:</Text>
-                    <Text style={styles.batchValue}>{batch.data_count}</Text>
-                  </View>
-                  <View style={styles.batchRow}>
-                    <Text style={styles.batchLabel}>Merkle Root:</Text>
-                    <Text style={styles.batchValue} numberOfLines={1}>
-                      {batch.merkle_root.substring(0, 16)}...
-                    </Text>
-                  </View>
-                  {batch.gas_used && (
-                    <View style={styles.batchRow}>
-                      <Text style={styles.batchLabel}>Gas Used:</Text>
-                      <Text style={styles.batchValue}>{batch.gas_used}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Verification Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data Integrity Verification</Text>
-          <View style={styles.verifyCard}>
-            <Text style={styles.verifyDescription}>
-              Verify that your data hasn't been tampered with using Merkle proofs.
-            </Text>
-
-            <Text style={styles.inputLabel}>Data Hash</Text>
-            <TextInput
-              style={styles.input}
-              value={dataHash}
-              onChangeText={setDataHash}
-              placeholder="Enter data hash"
-              placeholderTextColor="#666"
-            />
-
-            <Text style={styles.inputLabel}>Batch ID</Text>
-            <TextInput
-              style={styles.input}
-              value={batchId}
-              onChangeText={setBatchId}
-              placeholder="Enter batch ID"
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-            />
-
-            <TouchableOpacity
-              style={[styles.verifyButton, verifying && styles.buttonDisabled]}
-              onPress={handleVerify}
-              disabled={verifying}
-            >
-              {verifying ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <>
-                  <Ionicons name="shield-checkmark" size={20} color="#000" />
-                  <Text style={styles.verifyButtonText}>Verify Integrity</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {verificationResult && (
-              <View
-                style={[
-                  styles.resultCard,
-                  {
-                    backgroundColor: verificationResult.is_valid ? '#00ff8822' : '#ff000022',
-                    borderColor: verificationResult.is_valid ? '#00ff88' : '#ff0000',
-                  },
-                ]}
-              >
-                <View style={styles.resultHeader}>
-                  <Ionicons
-                    name={verificationResult.is_valid ? 'checkmark-circle' : 'close-circle'}
-                    size={32}
-                    color={verificationResult.is_valid ? '#00ff88' : '#ff0000'}
-                  />
-                  <Text
-                    style={[
-                      styles.resultTitle,
-                      { color: verificationResult.is_valid ? '#00ff88' : '#ff0000' },
-                    ]}
-                  >
-                    {verificationResult.is_valid ? 'Valid' : 'Invalid'}
-                  </Text>
-                </View>
-                <Text style={styles.resultMessage}>{verificationResult.message}</Text>
-              </View>
-            )}
           </View>
         </View>
       </View>
+
+      {/* Device Picker Modal */}
+      <Modal
+        visible={showDevicePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDevicePicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDevicePicker(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Device</Text>
+              <TouchableOpacity onPress={() => setShowDevicePicker(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={devices}
+              keyExtractor={(item) => item.device_id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.deviceOption,
+                    selectedDeviceId === item.device_id && styles.deviceOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedDeviceId(item.device_id);
+                    setShowDevicePicker(false);
+                  }}
+                >
+                  <View style={styles.deviceOptionContent}>
+                    <Ionicons
+                      name="hardware-chip"
+                      size={20}
+                      color={selectedDeviceId === item.device_id ? '#0dcaf0' : '#adb5bd'}
+                    />
+                    <View style={styles.deviceOptionText}>
+                      <Text style={styles.deviceOptionName}>{item.device_name}</Text>
+                      <Text style={styles.deviceOptionId}>{item.device_id}</Text>
+                    </View>
+                  </View>
+                  {selectedDeviceId === item.device_id && (
+                    <Ionicons name="checkmark-circle" size={20} color="#0dcaf0" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -280,188 +332,240 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#212529',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#212529',
     alignItems: 'center',
     justifyContent: 'center',
   },
   content: {
-    padding: 16,
+    padding: 24,
   },
-  section: {
-    marginBottom: 24,
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#adb5bd',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  mainContent: {
+    gap: 24,
+  },
+  formSection: {
+    backgroundColor: '#343a40',
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  processSection: {
+    backgroundColor: '#2c3135',
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 202, 240, 0.2)',
   },
   sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    marginBottom: 12,
+    color: '#ffffff',
+    marginBottom: 20,
   },
-  pendingCard: {
-    backgroundColor: '#1a1a1a',
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  pendingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
-  },
-  pendingInfo: {
-    flex: 1,
-  },
-  pendingCount: {
-    color: '#ffaa00',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  pendingLabel: {
-    color: '#aaa',
+  label: {
     fontSize: 14,
-  },
-  pendingDescription: {
-    color: '#888',
-    fontSize: 14,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  anchorButton: {
-    flexDirection: 'row',
-    backgroundColor: '#00d4ff',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  anchorButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  batchCard: {
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    marginBottom: 12,
-  },
-  batchHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  batchInfo: {
-    flex: 1,
-  },
-  batchId: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  batchDate: {
-    color: '#888',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  batchDetails: {
-    gap: 8,
-  },
-  batchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  batchLabel: {
-    color: '#aaa',
-    fontSize: 14,
-  },
-  batchValue: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#adb5bd',
+    marginBottom: 8,
     fontWeight: '500',
   },
-  verifyCard: {
-    backgroundColor: '#1a1a1a',
-    padding: 20,
-    borderRadius: 12,
+  pickerContainer: {
+    backgroundColor: '#2c3135',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
   },
-  verifyDescription: {
-    color: '#888',
-    fontSize: 14,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  inputLabel: {
-    color: '#aaa',
-    fontSize: 14,
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: '#0a0a0a',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    fontSize: 16,
-  },
-  verifyButton: {
-    flexDirection: 'row',
-    backgroundColor: '#00d4ff',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-  },
-  verifyButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  resultCard: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    marginTop: 16,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
-  },
-  resultTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  resultMessage: {
-    color: '#ccc',
-    fontSize: 14,
-    lineHeight: 20,
+  picker: {
+    color: '#ffffff',
+    height: 50,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
+    padding: 32,
+    gap: 8,
   },
   emptyText: {
-    color: '#666',
     fontSize: 16,
-    marginTop: 12,
+    fontWeight: '600',
+    color: '#adb5bd',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6c757d',
+  },
+  readingRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  input: {
+    backgroundColor: '#2c3135',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    color: '#ffffff',
+    fontSize: 14,
+  },
+  readingKey: {
+    flex: 2,
+  },
+  readingValue: {
+    flex: 1.5,
+  },
+  readingUnit: {
+    flex: 1,
+  },
+  removeButton: {
+    padding: 4,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0dcaf0',
+    borderStyle: 'dashed',
+    marginTop: 8,
+  },
+  addButtonText: {
+    color: '#0dcaf0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  submitButton: {
+    flexDirection: 'row',
+    backgroundColor: '#20c997',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 24,
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
+  },
+  submitButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  stepsList: {
+    gap: 16,
+  },
+  step: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0dcaf0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumberText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  stepContent: {
+    flex: 1,
+    paddingTop: 4,
+  },
+  stepTitle: {
+    fontSize: 14,
+    color: '#adb5bd',
+    lineHeight: 20,
+  },
+  pickerText: {
+    color: '#ffffff',
+    fontSize: 16,
+    flex: 1,
+    padding: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
+  },
+  pickerModal: {
+    backgroundColor: '#343a40',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '70%',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  deviceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  deviceOptionSelected: {
+    backgroundColor: 'rgba(13, 202, 240, 0.1)',
+  },
+  deviceOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  deviceOptionText: {
+    flex: 1,
+  },
+  deviceOptionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  deviceOptionId: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 2,
   },
 });
+

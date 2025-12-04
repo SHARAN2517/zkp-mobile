@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getSystemMetrics, type Metrics } from '../../utils/api';
+// import { WalletConnect } from '../../components'; // Commented out - requires @walletconnect/ethereum-provider package
+
 
 export default function HomeScreen() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -62,6 +64,9 @@ export default function HomeScreen() {
           </View>
           <Ionicons name="cube" size={40} color="#00d4ff" />
         </View>
+
+        {/* Wallet Connect - Requires @walletconnect/ethereum-provider package */}
+        {/* <WalletConnect /> */}
 
         {/* Devices Stats */}
         <View style={styles.section}>

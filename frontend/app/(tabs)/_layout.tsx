@@ -44,18 +44,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="verify"
         options={{
-          title: 'Verify',
+          title: 'Submit Data',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="shield-checkmark" size={size} color={color} />
+            <Ionicons name="cloud-upload" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Audit & Verify',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Ionicons name="shield-checkmark" size={size} color={color} />
           ),
         }}
       />

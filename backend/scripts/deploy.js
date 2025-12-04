@@ -1,93 +1,88 @@
-const hre = require('hardhat');
+const hre = require("hardhat");
 
 async function main() {
-  console.log('\n🚀 Deploying ZK-IoTChain Smart Contracts...');
-  console.log('Network:', hre.network.name);
-  
+  const network = hre.network.name;
+  console.log(`\n🚀 Deploying ZK-IoTChain contracts to ${network}...`);
+  console.log("==========================================\n");
+
   const [deployer] = await hre.ethers.getSigners();
-  console.log('Deployer address:', deployer.address);
-  
+  console.log("Deploying contracts with account:", deployer.address);
+
   const balance = await hre.ethers.provider.getBalance(deployer.address);
-  console.log('Deployer balance:', hre.ethers.formatEther(balance), 'ETH\n');
-  
+  console.log("Account balance:", hre.ethers.formatEther(balance), "ETH\n");
+
   // Deploy ZKPVerifier
-  console.log('📝 Deploying ZKPVerifier...');
-  const ZKPVerifier = await hre.ethers.getContractFactory('ZKPVerifier');
+  console.log("📝 Deploying ZKPVerifier...");
+  const ZKPVerifier = await hre.ethers.getContractFactory("ZKPVerifier");
   const zkpVerifier = await ZKPVerifier.deploy();
   await zkpVerifier.waitForDeployment();
   const zkpVerifierAddress = await zkpVerifier.getAddress();
-  console.log('✅ ZKPVerifier deployed to:', zkpVerifierAddress);
-  
+  console.log("✅ ZKPVerifier deployed to:", zkpVerifierAddress);
+
   // Deploy DeviceRegistry
-  console.log('\n📝 Deploying DeviceRegistry...');
-  const DeviceRegistry = await hre.ethers.getContractFactory('DeviceRegistry');
+  console.log("\n📝 Deploying DeviceRegistry...");
+  const DeviceRegistry = await hre.ethers.getContractFactory("DeviceRegistry");
   const deviceRegistry = await DeviceRegistry.deploy(zkpVerifierAddress);
   await deviceRegistry.waitForDeployment();
   const deviceRegistryAddress = await deviceRegistry.getAddress();
-  console.log('✅ DeviceRegistry deployed to:', deviceRegistryAddress);
-  
+  console.log("✅ DeviceRegistry deployed to:", deviceRegistryAddress);
+
   // Deploy MerkleAnchor
-  console.log('\n📝 Deploying MerkleAnchor...');
-  const MerkleAnchor = await hre.ethers.getContractFactory('MerkleAnchor');
+  console.log("\n📝 Deploying MerkleAnchor...");
+  const MerkleAnchor = await hre.ethers.getContractFactory("MerkleAnchor");
   const merkleAnchor = await MerkleAnchor.deploy();
   await merkleAnchor.waitForDeployment();
   const merkleAnchorAddress = await merkleAnchor.getAddress();
-  console.log('✅ MerkleAnchor deployed to:', merkleAnchorAddress);
-  
-  console.log('\n✨ Deployment Summary:');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('ZKPVerifier     :', zkpVerifierAddress);
-  console.log('DeviceRegistry  :', deviceRegistryAddress);
-  console.log('MerkleAnchor    :', merkleAnchorAddress);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  
-  // Save deployment addresses
+  console.log("✅ MerkleAnchor deployed to:", merkleAnchorAddress);
+
+  // Save deployment info
   const fs = require('fs');
   const deploymentInfo = {
-    network: hre.network.name,
+    network: network,
     chainId: (await hre.ethers.provider.getNetwork()).chainId.toString(),
+    deployer: deployer.address,
+    timestamp: new Date().toISOString(),
     contracts: {
       ZKPVerifier: zkpVerifierAddress,
       DeviceRegistry: deviceRegistryAddress,
-      MerkleAnchor: merkleAnchorAddress,
+      MerkleAnchor: merkleAnchorAddress
     },
-    deployer: deployer.address,
-    timestamp: new Date().toISOString(),
-  };
-  
-  fs.writeFileSync(
-    './deployment.json',
-    JSON.stringify(deploymentInfo, null, 2)
-  );
-  
-  console.log('\n💾 Deployment info saved to deployment.json');
-  
-  if (hre.network.name === 'sepolia') {
-    console.log('\n⏳ Waiting for block confirmations...');
-    await zkpVerifier.deploymentTransaction().wait(5);
-    
-    console.log('\n🔍 Verifying contracts on Etherscan...');
-    try {
-      await hre.run('verify:verify', {
-        address: zkpVerifierAddress,
-        constructorArguments: [],
-      });
-      
-      await hre.run('verify:verify', {
-        address: deviceRegistryAddress,
-        constructorArguments: [zkpVerifierAddress],
-      });
-      
-      await hre.run('verify:verify', {
-        address: merkleAnchorAddress,
-        constructorArguments: [],
-      });
-      
-      console.log('✅ Contracts verified on Etherscan');
-    } catch (error) {
-      console.log('⚠️ Verification error:', error.message);
+    gasUsed: {
+      ZKPVerifier: (await zkpVerifier.deploymentTransaction().wait()).gasUsed.toString(),
+      DeviceRegistry: (await deviceRegistry.deploymentTransaction().wait()).gasUsed.toString(),
+      MerkleAnchor: (await merkleAnchor.deploymentTransaction().wait()).gasUsed.toString()
     }
+  };
+
+  const filename = `deployment-${network}.json`;
+  fs.writeFileSync(filename, JSON.stringify(deploymentInfo, null, 2));
+
+  console.log("\n==========================================");
+  console.log("✅ Deployment Complete!");
+  console.log("==========================================");
+  console.log(`📄 Deployment info saved to: ${filename}`);
+  console.log("\nContract Addresses:");
+  console.log("  ZKPVerifier:    ", zkpVerifierAddress);
+  console.log("  DeviceRegistry: ", deviceRegistryAddress);
+  console.log("  MerkleAnchor:   ", merkleAnchorAddress);
+
+  // Get network info
+  const networkInfo = {
+    'sepolia': { explorer: 'https://sepolia.etherscan.io', name: 'Ethereum Sepolia' },
+    'polygonMumbai': { explorer: 'https://mumbai.polygonscan.com', name: 'Polygon Mumbai' },
+    'polygon': { explorer: 'https://polygonscan.com', name: 'Polygon Mainnet' },
+    'bscTestnet': { explorer: 'https://testnet.bscscan.com', name: 'BSC Testnet' },
+    'bsc': { explorer: 'https://bscscan.com', name: 'BSC Mainnet' }
+  };
+
+  if (networkInfo[network]) {
+    console.log(`\n🔍 View on ${networkInfo[network].name} Explorer:`);
+    console.log(`  ${networkInfo[network].explorer}/address/${zkpVerifierAddress}`);
+    console.log(`  ${networkInfo[network].explorer}/address/${deviceRegistryAddress}`);
+    console.log(`  ${networkInfo[network].explorer}/address/${merkleAnchorAddress}`);
   }
+
+  console.log("\n");
 }
 
 main()

@@ -34,7 +34,10 @@ export default function DevicesScreen() {
   const [deviceName, setDeviceName] = useState('');
   const [deviceType, setDeviceType] = useState('healthcare');
   const [secret, setSecret] = useState('');
+  const [location, setLocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [registrationResult, setRegistrationResult] = useState<any>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Data submission form
   const [dataValue, setDataValue] = useState('');
@@ -76,17 +79,41 @@ export default function DevicesScreen() {
         secret: secret,
       });
 
-      Alert.alert('Success', 'Device registered successfully with ZKP!');
+      // Store registration result and show success modal
+      setRegistrationResult({
+        device_id: deviceId,
+        device_name: deviceName,
+        device_type: deviceType,
+        location: location || 'N/A',
+        public_key: result.public_key || 'Generated',
+        public_key_hash: result.public_key_hash || result.commitment || 'N/A',
+        created_at: new Date().toLocaleString(),
+        storage: 'LOCAL',
+      });
+
       setShowRegisterModal(false);
+      setShowSuccessModal(true);
+
+      // Clear form
       setDeviceId('');
       setDeviceName('');
+      setLocation('');
       setSecret('');
+
       loadDevices();
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Registration failed');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const generateDeviceId = () => {
+    // Generate unique device ID: DEV-{timestamp}-{random}
+    const timestamp = Date.now().toString(36); // Convert timestamp to base36
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const uniqueId = `DEV-${timestamp}-${random}`;
+    setDeviceId(uniqueId);
   };
 
   const handleAuthenticate = async () => {
@@ -260,14 +287,21 @@ export default function DevicesScreen() {
             </View>
 
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Device ID</Text>
-              <TextInput
-                style={styles.input}
-                value={deviceId}
-                onChangeText={setDeviceId}
-                placeholder="e.g., DEVICE-001"
-                placeholderTextColor="#666"
-              />
+              <Text style={styles.inputLabel}>Device ID *</Text>
+              <View style={styles.inputWithButton}>
+                <TextInput
+                  style={[styles.input, styles.inputFlex]}
+                  value={deviceId}
+                  onChangeText={setDeviceId}
+                  placeholder="e.g., sensor_001"
+                  placeholderTextColor="#666"
+                />
+                <TouchableOpacity style={styles.generateButton} onPress={generateDeviceId}>
+                  <Ionicons name="sparkles" size={16} color="#000" />
+                  <Text style={styles.generateButtonText}>Generate</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.helpText}>Unique identifier for your IoT device (alphanumeric, underscore, hyphen)</Text>
 
               <Text style={styles.inputLabel}>Device Name</Text>
               <TextInput
@@ -594,6 +628,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
     marginTop: 16,
+  },
+  inputWithButton: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  inputFlex: {
+    flex: 1,
+  },
+  generateButton: {
+    backgroundColor: '#0dcaf0',
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  generateButtonText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  helpText: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 16,
   },
   input: {
     backgroundColor: '#0a0a0a',

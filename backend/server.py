@@ -16,6 +16,7 @@ import json
 from zkp_utils import zkp_generator
 from merkle_tree import MerkleTree, hash_data, create_batch_merkle_tree
 from blockchain_client import blockchain_client
+from multi_chain_client import multi_chain_client
 
 
 ROOT_DIR = Path(__file__).parent
@@ -605,6 +606,139 @@ async def get_network():
     except Exception as e:
         logging.error(f"Error getting network info: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ Multi-Chain Endpoints ============
+
+@api_router.get("/multichain/networks")
+async def list_networks():
+    """List all available blockchain networks"""
+    if not multi_chain_client:
+        raise HTTPException(status_code=503, detail="Multi-chain client not available")
+    
+    try:
+        networks = multi_chain_client.list_networks()
+        return {
+            'success': True,
+            'networks': networks,
+            'current_network': multi_chain_client.current_network
+        }
+    except Exception as e:
+        logging.error(f"Error listing networks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class NetworkSwitchRequest(BaseModel):
+    network: str
+
+
+@api_router.post("/multichain/switch-network")
+async def switch_network(request: NetworkSwitchRequest):
+    """Switch to a different blockchain network"""
+    if not multi_chain_client:
+        raise HTTPException(status_code=503, detail="Multi-chain client not available")
+    
+    try:
+        result = multi_chain_client.switch_network(request.network)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.error(f"Error switching network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/multichain/network/{network_name}")
+async def get_network_details(network_name: str):
+    """Get detailed information about a specific network"""
+    if not multi_chain_client:
+        raise HTTPException(status_code=503, detail="Multi-chain client not available")
+    
+    try:
+        network_info = multi_chain_client.get_network_info(network_name)
+        return network_info
+    except Exception as e:
+        logging.error(f"Error getting network details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class MultiChainDeviceRegistration(BaseModel):
+    device_id: str
+    device_name: str
+    device_type: str
+    secret: str
+    networks: List[str]  # List of networks to register on
+
+
+@api_router.post("/multichain/devices/register")
+async def register_device_multichain(device_data: MultiChainDeviceRegistration):
+    """Register device on multiple blockchain networks"""
+    if not multi_chain_client:
+        raise HTTPException(status_code=503, detail="Multi-chain client not available")
+    
+    try:
+        # Check if device already exists
+        existing = await db.devices.find_one({"device_id": device_data.device_id})
+        if existing:
+            raise HTTPException(status_code=400, detail="Device already registered")
+        
+        # Generate ZK proof
+        timestamp = int(time.time())
+        proof_data = zkp_generator.generate_proof(
+            device_data.device_id,
+            device_data.secret,
+            timestamp
+        )
+        
+        # Generate device keypair
+        public_key_hash, private_key = zkp_generator.generate_device_keypair(device_data.device_id)
+        
+        # Register on each specified network
+        blockchain_results = {}
+        for network in device_data.networks:
+            result = multi_chain_client.register_device_on_chain(
+                device_data.device_id,
+                public_key_hash,
+                device_data.device_type,
+                proof_data["proof"],
+                proof_data["publicSignals"],
+                network
+            )
+            blockchain_results[network] = result
+        
+        # Store device in database
+        device_doc = {
+            "device_id": device_data.device_id,
+            "device_name": device_data.device_name,
+            "device_type": device_data.device_type,
+            "public_key_hash": public_key_hash,
+            "private_key": private_key,
+            "registered_at": timestamp,
+            "last_authenticated": timestamp,
+            "is_active": True,
+            "blockchain_networks": device_data.networks,
+            "blockchain_txs": blockchain_results,
+            "total_data_submitted": 0
+        }
+        
+        await db.devices.insert_one(device_doc)
+        
+        return {
+            "success": True,
+            "device_id": device_data.device_id,
+            "public_key_hash": public_key_hash,
+            "proof": proof_data,
+            "blockchain_results": blockchain_results,
+            "message": f"Device registered on {len(device_data.networks)} networks"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Multi-chain device registration error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 # ============ Performance Metrics ============
