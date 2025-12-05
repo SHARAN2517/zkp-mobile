@@ -56,6 +56,55 @@ module.exports = {
       chainId: 56,
       gasPrice: 5000000000, // 5 Gwei
     },
+
+    // Arbitrum Networks
+    arbitrumSepolia: {
+      url: process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc',
+      accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length === 66)
+        ? [process.env.PRIVATE_KEY]
+        : ['0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'],
+      chainId: 421614,
+    },
+    arbitrum: {
+      url: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
+      accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length === 66)
+        ? [process.env.PRIVATE_KEY]
+        : ['0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'],
+      chainId: 42161,
+    },
+
+    // Optimism Networks
+    optimismSepolia: {
+      url: process.env.OPTIMISM_SEPOLIA_RPC_URL || 'https://sepolia.optimism.io',
+      accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length === 66)
+        ? [process.env.PRIVATE_KEY]
+        : ['0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'],
+      chainId: 11155420,
+    },
+    optimism: {
+      url: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
+      accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length === 66)
+        ? [process.env.PRIVATE_KEY]
+        : ['0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'],
+      chainId: 10,
+    },
+
+    // Avalanche Networks
+    avalancheFuji: {
+      url: process.env.AVALANCHE_FUJI_RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc',
+      accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length === 66)
+        ? [process.env.PRIVATE_KEY]
+        : ['0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'],
+      chainId: 43113,
+    },
+    avalanche: {
+      url: process.env.AVALANCHE_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc',
+      accounts: (process.env.PRIVATE_KEY && process.env.PRIVATE_KEY.length === 66)
+        ? [process.env.PRIVATE_KEY]
+        : ['0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'],
+      chainId: 43114,
+      gasPrice: 25000000000, // 25 Gwei
+    },
   },
   paths: {
     sources: './contracts',

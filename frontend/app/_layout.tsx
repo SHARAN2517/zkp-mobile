@@ -2,7 +2,14 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import 'react-native-get-random-values';
-import '@walletconnect/react-native-compat';
+
+// Import WalletConnect compat with error handling
+try {
+  require('@walletconnect/react-native-compat');
+} catch (error) {
+  console.warn('WalletConnect compat not available:', error);
+}
+
 import { StatusBar } from 'expo-status-bar';
 
 const queryClient = new QueryClient();

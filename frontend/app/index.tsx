@@ -1,8 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import minimalistTheme from '../utils/minimalistTheme';
+import {
+  TemperatureIcon,
+  HumidityIcon,
+  MotionIcon,
+  GatewayIcon,
+  BlockchainNodeIcon,
+  MerkleTreeIcon,
+  CircuitPattern,
+} from '../components/IoTIcons';
+
+const { width } = Dimensions.get('window');
+const theme = minimalistTheme;
 
 export default function LandingScreen() {
   const router = useRouter();
@@ -11,21 +25,50 @@ export default function LandingScreen() {
     <ScrollView style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Hero Section */}
+      {/* Hero Section with 16:9 aspect ratio */}
       <View style={styles.hero}>
-        <View style={styles.heroContent}>
-          <Ionicons name="cube-outline" size={72} color="#0dcaf0" style={styles.logo} />
-          <Text style={styles.title}>ZK-IoTChain</Text>
-          <Text style={styles.subtitle}>Blockchain-Enabled IoT Security with Zero-Knowledge Proofs</Text>
+        {/* Background circuit pattern */}
+        <View style={styles.circuitBackground}>
+          <CircuitPattern size={width} color={theme.colors.primary.main} opacity={0.05} />
+        </View>
 
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => router.push('/(tabs)/home')}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.buttonText}>Get Started</Text>
-            <Ionicons name="arrow-forward" size={18} color="#000" />
-          </TouchableOpacity>
+        {/* Gradient overlay */}
+        <View style={styles.gradientOverlay}>
+          <View style={styles.heroContent}>
+            {/* Merkle Tree Visualization */}
+            <View style={styles.merkleContainer}>
+              <MerkleTreeIcon size={120} color={theme.colors.primary.main} />
+            </View>
+
+            <Text style={styles.title}>ZK-IoTChain</Text>
+            <Text style={styles.subtitle}>
+              Blockchain-Powered IoT Security with Zero-Knowledge Proofs
+            </Text>
+
+            {/* IoT Device Icons */}
+            <View style={styles.iotIconsRow}>
+              <View style={styles.smallIconContainer}>
+                <TemperatureIcon size={20} color={theme.colors.primary.main} />
+              </View>
+              <View style={styles.smallIconContainer}>
+                <HumidityIcon size={20} color={theme.colors.primary.main} />
+              </View>
+              <View style={styles.smallIconContainer}>
+                <MotionIcon size={20} color={theme.colors.primary.main} />
+              </View>
+              <View style={styles.smallIconContainer}>
+                <GatewayIcon size={20} color={theme.colors.primary.main} />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.push('/(tabs)/home')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.buttonText}>Get Started</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -34,9 +77,10 @@ export default function LandingScreen() {
         <Text style={styles.sectionTitle}>Key Features</Text>
 
         <View style={styles.featuresGrid}>
+          {/* ZKP Feature */}
           <View style={styles.featureCard}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="shield-checkmark" size={32} color="#0dcaf0" />
+            <View style={[styles.iconContainer, styles.iconContainerPrimary]}>
+              <BlockchainNodeIcon size={28} color={theme.colors.white} />
             </View>
             <Text style={styles.featureTitle}>Zero-Knowledge Proofs</Text>
             <Text style={styles.featureDescription}>
@@ -44,9 +88,10 @@ export default function LandingScreen() {
             </Text>
           </View>
 
+          {/* Merkle Tree Feature */}
           <View style={styles.featureCard}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="git-network" size={32} color="#0dcaf0" />
+            <View style={[styles.iconContainer, styles.iconContainerPrimary]}>
+              <MerkleTreeIcon size={32} color={theme.colors.white} />
             </View>
             <Text style={styles.featureTitle}>Merkle Tree Anchoring</Text>
             <Text style={styles.featureDescription}>
@@ -54,19 +99,21 @@ export default function LandingScreen() {
             </Text>
           </View>
 
+          {/* Multi-Chain Feature */}
           <View style={styles.featureCard}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="logo-bitcoin" size={32} color="#0dcaf0" />
+            <View style={[styles.iconContainer, styles.iconContainerPrimary]}>
+              <BlockchainNodeIcon size={28} color={theme.colors.white} />
             </View>
-            <Text style={styles.featureTitle}>Ethereum Integration</Text>
+            <Text style={styles.featureTitle}>Multi-Chain Support</Text>
             <Text style={styles.featureDescription}>
-              Smart contracts deployed on Sepolia testnet for transparent verification
+              Deploy on Ethereum, Polygon, Arbitrum, Optimism, Avalanche, and BSC
             </Text>
           </View>
 
+          {/* IoT Integration */}
           <View style={styles.featureCard}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="server" size={32} color="#20c997" />
+            <View style={[styles.iconContainer, styles.iconContainerPrimary]}>
+              <GatewayIcon size={28} color={theme.colors.white} />
             </View>
             <Text style={styles.featureTitle}>Scalable Architecture</Text>
             <Text style={styles.featureDescription}>
@@ -160,159 +207,201 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#212529',
+    backgroundColor: theme.colors.gray[900],
   },
+
+  // Hero section styles
   hero: {
-    backgroundColor: '#2c3135',
-    paddingVertical: 60,
-    paddingHorizontal: 24,
-    alignItems: 'center',
+    position: 'relative' as const,
+    minHeight: width * 0.5625, // 16:9 aspect ratio
+    backgroundColor: theme.colors.gray[800],
+    overflow: 'hidden' as const,
+  },
+  circuitBackground: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  gradientOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.7)', // gray-900 with opacity
+    paddingVertical: theme.spacing[12],
+    paddingHorizontal: theme.spacing[6],
+    alignItems: 'center' as const,
   },
   heroContent: {
     maxWidth: 600,
-    alignItems: 'center',
+    alignItems: 'center' as const,
   },
-  logo: {
-    marginBottom: 24,
+  merkleContainer: {
+    marginBottom: theme.spacing[6],
+    opacity: 0.8,
   },
   title: {
-    fontSize: 42,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 16,
-    textAlign: 'center',
+    fontSize: theme.typography.sizes['4xl'],
+    fontWeight: theme.typography.weights.bold as any,
+    color: theme.colors.white,
+    marginBottom: theme.spacing[4],
+    textAlign: 'center' as const,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#adb5bd',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 28,
+    fontSize: theme.typography.sizes.lg,
+    color: theme.colors.gray[300],
+    textAlign: 'center' as const,
+    marginBottom: theme.spacing[6],
+    lineHeight: theme.typography.lineHeights.relaxed * theme.typography.sizes.lg,
+  },
+  iotIconsRow: {
+    flexDirection: 'row' as const,
+    gap: theme.spacing[3],
+    marginBottom: theme.spacing[8],
+  },
+  smallIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.glass.whiteStrong,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    ...(theme.shadows.sm as object),
   },
   primaryButton: {
-    flexDirection: 'row',
-    backgroundColor: '#0dcaf0',
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    gap: 8,
+    backgroundColor: theme.colors.primary.main,
+    paddingHorizontal: theme.spacing[8],
+    paddingVertical: theme.spacing[4],
+    borderRadius: theme.borderRadius.md,
+    ...(theme.shadows.primaryGlow as object),
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
+    fontSize: theme.typography.sizes.md,
+    fontWeight: theme.typography.weights.semibold as any,
+    color: theme.colors.white,
   },
+
+  // Section styles
   section: {
-    padding: 24,
+    padding: theme.spacing[6],
   },
   sectionTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 24,
-    textAlign: 'center',
+    fontSize: theme.typography.sizes['3xl'],
+    fontWeight: theme.typography.weights.bold as any,
+    color: theme.colors.white,
+    marginBottom: theme.spacing[6],
+    textAlign: 'center' as const,
   },
+
+  // Feature cards with glassmorphism
   featuresGrid: {
-    gap: 16,
+    gap: theme.spacing[4],
   },
   featureCard: {
-    backgroundColor: '#343a40',
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    ...(theme.glassmorphism.dark as object),
+    padding: theme.spacing[5],
+    borderRadius: theme.borderRadius.xl,
   },
   iconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 12,
-    backgroundColor: 'rgba(13, 202, 240, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.glass.whiteStrong,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginBottom: theme.spacing[4],
+  },
+  iconContainerPrimary: {
+    backgroundColor: theme.colors.primary.main,
   },
   featureTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 8,
+    fontSize: theme.typography.sizes.xl,
+    fontWeight: theme.typography.weights.semibold as any,
+    color: theme.colors.white,
+    marginBottom: theme.spacing[2],
   },
   featureDescription: {
-    fontSize: 14,
-    color: '#adb5bd',
-    lineHeight: 22,
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.gray[300],
+    lineHeight: theme.typography.lineHeights.relaxed * theme.typography.sizes.sm,
   },
+
+  // Steps styles
   stepsContainer: {
-    gap: 16,
+    gap: theme.spacing[4],
   },
   step: {
-    flexDirection: 'row',
-    gap: 16,
+    flexDirection: 'row' as const,
+    gap: theme.spacing[4],
   },
   stepNumber: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#0dcaf0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primary.main,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    ...(theme.shadows.md as object),
   },
   stepNumberText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: theme.typography.weights.bold as any,
+    color: theme.colors.white,
   },
   stepContent: {
     flex: 1,
   },
   stepTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 4,
+    fontSize: theme.typography.sizes.lg,
+    fontWeight: theme.typography.weights.semibold as any,
+    color: theme.colors.white,
+    marginBottom: theme.spacing[1],
   },
   stepDescription: {
-    fontSize: 14,
-    color: '#adb5bd',
-    lineHeight: 22,
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.gray[300],
+    lineHeight: theme.typography.lineHeights.relaxed * theme.typography.sizes.sm,
   },
+
+  // Stats section with glassmorphism
   statsSection: {
-    flexDirection: 'row',
-    backgroundColor: '#343a40',
-    padding: 24,
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    flexDirection: 'row' as const,
+    ...(theme.glassmorphism.primary as object),
+    padding: theme.spacing[6],
+    marginHorizontal: theme.spacing[6],
+    marginBottom: theme.spacing[6],
+    borderRadius: theme.borderRadius.xl,
   },
   statItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'center' as const,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0dcaf0',
-    marginBottom: 4,
+    fontSize: theme.typography.sizes['2xl'],
+    fontWeight: theme.typography.weights.bold as any,
+    color: theme.colors.primary.main,
+    marginBottom: theme.spacing[1],
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6c757d',
-    textTransform: 'uppercase',
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.gray[400],
+    textTransform: 'uppercase' as const,
   },
   statDivider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: theme.colors.glass.whiteStrong,
   },
+
+  // Footer
   footer: {
-    padding: 24,
-    alignItems: 'center',
+    padding: theme.spacing[6],
+    alignItems: 'center' as const,
   },
   footerText: {
-    fontSize: 12,
-    color: '#6c757d',
-    textAlign: 'center',
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.gray[500],
+    textAlign: 'center' as const,
   },
 });
+

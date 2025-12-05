@@ -10,8 +10,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getSystemMetrics, type Metrics } from '../../utils/api';
-// import { WalletConnect } from '../../components'; // Commented out - requires @walletconnect/ethereum-provider package
+import minimalistTheme from '../../utils/minimalistTheme';
+import {
+  DeviceActivityChart,
+  DataSubmissionChart,
+  DeviceTypeDistribution,
+} from '../../components/DataCharts';
+import { BlockchainNodeIcon, GatewayIcon } from '../../components/IoTIcons';
 
+const theme = minimalistTheme;
 
 export default function HomeScreen() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -42,8 +49,8 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00d4ff" />
-        <Text style={styles.loadingText}>Loading metrics...</Text>
+        <ActivityIndicator size="large" color={theme.colors.primary.main} />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
       </View>
     );
   }
@@ -52,21 +59,25 @@ export default function HomeScreen() {
     <ScrollView
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00d4ff" />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.colors.primary.main}
+        />
       }
     >
       <View style={styles.content}>
-        {/* Header */}
+        {/* Header with Glassmorphism */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>Welcome to</Text>
-            <Text style={styles.title}>ZK-IoTChain Dashboard</Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.welcomeText}>Dashboard</Text>
+            <Text style={styles.title}>ZK-IoTChain</Text>
           </View>
-          <Ionicons name="cube" size={40} color="#00d4ff" />
+          <View style={styles.iconContainer}>
+            <BlockchainNodeIcon size={40} color={theme.colors.primary.main} />
+          </View>
         </View>
 
-        {/* Wallet Connect - Requires @walletconnect/ethereum-provider package */}
-        {/* <WalletConnect /> */}
 
         {/* Devices Stats */}
         <View style={styles.section}>
@@ -138,10 +149,19 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Data Visualization Charts */}
+        <View style={styles.section}>
+          <DeviceActivityChart />
+        </View>
+
+        <View style={styles.section}>
+          <DataSubmissionChart />
+        </View>
+
         {/* Authentication Stats */}
         <View style={styles.section}>
           <View style={styles.authCard}>
-            <Ionicons name="shield-checkmark" size={48} color="#00d4ff" />
+            <BlockchainNodeIcon size={48} color={theme.colors.primary.main} />
             <Text style={styles.authValue}>{metrics?.authentications || 0}</Text>
             <Text style={styles.authLabel}>Total ZKP Authentications</Text>
           </View>
@@ -154,36 +174,51 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.gray[900],
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.colors.gray[900],
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
-    color: '#888',
-    marginTop: 16,
-    fontSize: 16,
+    color: theme.colors.gray[400],
+    marginTop: theme.spacing[4],
+    fontSize: theme.typography.sizes.md,
   },
   content: {
-    padding: 16,
+    padding: theme.spacing[4],
   },
   header: {
+    ...theme.glassmorphism.dark as any,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    padding: theme.spacing[5],
+    borderRadius: theme.borderRadius.xl,
+    marginBottom: theme.spacing[6],
+  },
+  headerContent: {
+    flex: 1,
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    backgroundColor: theme.colors.glass.whiteStrong,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   welcomeText: {
-    color: '#888',
-    fontSize: 14,
+    color: theme.colors.gray[400],
+    fontSize: theme.typography.sizes.sm,
+    marginBottom: theme.spacing[1],
   },
   title: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+    color: theme.colors.white,
+    fontSize: theme.typography.sizes['3xl'],
+    fontWeight: theme.typography.weights.bold as any,
   },
   section: {
     marginBottom: 24,

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -70,6 +71,12 @@ export default function DevicesScreen() {
       return;
     }
 
+    if (secret.length < 8) {
+      Alert.alert('Invalid Secret', 'Device secret must be at least 8 characters long for security');
+      return;
+    }
+
+    console.log('[Registration] Starting registration for:', deviceId);
     setSubmitting(true);
     try {
       const result = await registerDevice({
@@ -78,6 +85,8 @@ export default function DevicesScreen() {
         device_type: deviceType,
         secret: secret,
       });
+
+      console.log('[Registration] Success:', result);
 
       // Store registration result and show success modal
       setRegistrationResult({
@@ -102,7 +111,14 @@ export default function DevicesScreen() {
 
       loadDevices();
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Registration failed');
+      console.error('[Registration] Error:', error);
+      console.error('[Registration] Error response:', error.response?.data);
+
+      const errorMessage = error.response?.data?.detail
+        || error.message
+        || 'Registration failed. Please check your internet connection and try again.';
+
+      Alert.alert('Registration Error', errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -118,10 +134,24 @@ export default function DevicesScreen() {
 
   const handleAuthenticate = async () => {
     if (!selectedDevice || !secret) {
-      Alert.alert('Error', 'Please enter device secret');
+      if (Platform.OS === 'web') {
+        window.alert('Please enter device secret');
+      } else {
+        Alert.alert('Error', 'Please enter device secret');
+      }
       return;
     }
 
+    if (secret.length < 8) {
+      if (Platform.OS === 'web') {
+        window.alert('Device secret must be at least 8 characters long');
+      } else {
+        Alert.alert('Invalid Secret', 'Device secret must be at least 8 characters long');
+      }
+      return;
+    }
+
+    console.log('[Auth] Starting authentication for:', selectedDevice.device_id);
     setSubmitting(true);
     try {
       const result = await authenticateDevice({
@@ -129,12 +159,30 @@ export default function DevicesScreen() {
         secret: secret,
       });
 
-      Alert.alert('Success', 'Device authenticated successfully!');
+      console.log('[Auth] Success:', result);
+
+      // Only close modal on success
+      if (Platform.OS === 'web') {
+        window.alert('✅ Device authenticated successfully!');
+      } else {
+        Alert.alert('Success', 'Device authenticated successfully!');
+      }
+
       setShowAuthModal(false);
       setSecret('');
       setSelectedDevice(null);
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Authentication failed');
+      console.error('[Auth] Error:', error);
+      console.error('[Auth] Error response:', error.response?.data);
+
+      // Keep modal open on error so user can try again
+      const errorMessage = error.response?.data?.detail || 'Authentication failed. Please check your secret and try again.';
+
+      if (Platform.OS === 'web') {
+        window.alert('❌ Authentication Error: ' + errorMessage);
+      } else {
+        Alert.alert('Authentication Error', errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -335,15 +383,16 @@ export default function DevicesScreen() {
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Device Secret</Text>
+              <Text style={styles.inputLabel}>Device Secret *</Text>
               <TextInput
                 style={styles.input}
                 value={secret}
                 onChangeText={setSecret}
-                placeholder="Enter secure secret"
+                placeholder="Min 8 characters required"
                 placeholderTextColor="#666"
                 secureTextEntry
               />
+              <Text style={styles.helpText}>Minimum 8 characters for secure ZKP authentication</Text>
 
               <TouchableOpacity
                 style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
@@ -385,15 +434,17 @@ export default function DevicesScreen() {
                 Device: {selectedDevice?.device_name}
               </Text>
 
-              <Text style={styles.inputLabel}>Device Secret</Text>
+              <Text style={styles.inputLabel}>Device Secret *</Text>
               <TextInput
                 style={styles.input}
                 value={secret}
                 onChangeText={setSecret}
-                placeholder="Enter device secret"
+                placeholder="Enter the secret used during registration"
                 placeholderTextColor="#666"
                 secureTextEntry
+                autoFocus
               />
+              <Text style={styles.helpText}>Use the same secret you used when registering this device</Text>
 
               <TouchableOpacity
                 style={[styles.submitButton, submitting && styles.submitButtonDisabled]}

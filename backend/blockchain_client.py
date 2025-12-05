@@ -14,7 +14,10 @@ class BlockchainClient:
     
     def __init__(self):
         # Load deployment info
-        deployment_path = '/app/backend/deployment.json'
+        deployment_path = 'deployment.json'
+        if not os.path.exists(deployment_path):
+            deployment_path = os.path.join(os.path.dirname(__file__), 'deployment.json')
+        
         if os.path.exists(deployment_path):
             with open(deployment_path, 'r') as f:
                 self.deployment_info = json.load(f)
@@ -22,8 +25,8 @@ class BlockchainClient:
             self.deployment_info = None
             logger.warning("No deployment.json found. Smart contracts not deployed yet.")
         
-        # Connect to network
-        rpc_url = os.getenv('SEPOLIA_RPC_URL', 'http://127.0.0.1:8545')
+        # Connect to network - prefer localhost for development
+        rpc_url = os.getenv('LOCALHOST_RPC_URL') or os.getenv('SEPOLIA_RPC_URL', 'http://127.0.0.1:8545')
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         
         # Load private key if available
@@ -47,7 +50,10 @@ class BlockchainClient:
         contract_address = self.deployment_info['contracts'][contract_name]
         
         # Load ABI
-        abi_path = f'/app/backend/artifacts/contracts/{contract_name}.sol/{contract_name}.json'
+        abi_path = f'artifacts/contracts/{contract_name}.sol/{contract_name}.json'
+        if not os.path.exists(abi_path):
+            abi_path = os.path.join(os.path.dirname(__file__), f'artifacts/contracts/{contract_name}.sol/{contract_name}.json')
+        
         with open(abi_path, 'r') as f:
             contract_json = json.load(f)
             abi = contract_json['abi']

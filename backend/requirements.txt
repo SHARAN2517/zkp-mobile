@@ -11,6 +11,7 @@ numpy>=1.26.0
 python-multipart>=0.0.9
 jq>=1.6.0
 typer>=0.9.0
+
 # ZK-IoTChain specific dependencies
 web3==7.14.0
 eth-account==0.13.7
@@ -27,3 +28,7 @@ aiohttp==3.9.5
 
 # Enhanced ZKP
 py_ecc==6.0.0
+
+# AI/ML for tampering detection
+scikit-learn>=1.5.0
+scipy>=1.14.0

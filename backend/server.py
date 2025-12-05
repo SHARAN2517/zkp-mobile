@@ -18,6 +18,19 @@ from merkle_tree import MerkleTree, hash_data, create_batch_merkle_tree
 from blockchain_client import blockchain_client
 from multi_chain_client import multi_chain_client
 
+# Setup logger for ML imports
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+# Import ML tampering detection
+ML_AVAILABLE = False
+try:
+    from ml_endpoints import ml_router
+    from ml_tampering_detection import analyze_device_behavior
+    ML_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"ML detection not available: {e}")
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -29,6 +42,16 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
 app = FastAPI(title="ZK-IoTChain API", version="1.0.0")
+
+# Add CORS middleware BEFORE including routers
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -103,6 +126,12 @@ async def register_device(device_data: DeviceRegistration):
         # Generate device keypair
         public_key_hash, private_key = zkp_generator.generate_device_keypair(device_data.device_id)
         
+        # Create a simple hash of the secret for authentication verification
+        import hashlib
+        secret_hash = hashlib.sha256(
+            f"{device_data.device_id}:{device_data.secret}".encode()
+        ).hexdigest()
+        
         # Register on blockchain
         blockchain_result = None
         if blockchain_client:
@@ -121,6 +150,7 @@ async def register_device(device_data: DeviceRegistration):
             "device_type": device_data.device_type,
             "public_key_hash": public_key_hash,
             "private_key": private_key,  # In production, store securely
+            "secret_hash": secret_hash,  # Store hash for authentication
             "registered_at": timestamp,
             "last_authenticated": timestamp,
             "is_active": True,
@@ -161,7 +191,24 @@ async def authenticate_device(auth_data: DeviceAuthentication):
         if not device.get("is_active"):
             raise HTTPException(status_code=403, detail="Device is deactivated")
         
-        # Generate ZK proof
+        # Verify the secret using fast hash comparison
+        import hashlib
+        provided_hash = hashlib.sha256(
+            f"{auth_data.device_id}:{auth_data.secret}".encode()
+        ).hexdigest()
+        
+        stored_hash = device.get("secret_hash")
+        if stored_hash and provided_hash != stored_hash:
+            # Log failed authentication
+            await db.auth_logs.insert_one({
+                "device_id": auth_data.device_id,
+                "timestamp": int(time.time()),
+                "success": False,
+                "reason": "Invalid secret"
+            })
+            raise HTTPException(status_code=401, detail="Invalid device secret")
+        
+        # Generate ZK proof for successful authentication
         timestamp = int(time.time())
         proof_data = zkp_generator.generate_proof(
             auth_data.device_id,
@@ -174,16 +221,6 @@ async def authenticate_device(auth_data: DeviceAuthentication):
         
         if not is_valid:
             raise HTTPException(status_code=401, detail="Invalid authentication proof")
-        
-        # Authenticate on blockchain (optional, can be expensive)
-        blockchain_result = None
-        # Uncomment for on-chain authentication
-        # if blockchain_client:
-        #     blockchain_result = blockchain_client.authenticate_device_on_chain(
-        #         auth_data.device_id,
-        #         proof_data["proof"],
-        #         proof_data["publicSignals"]
-        #     )
         
         # Update last authenticated
         await db.devices.update_one(
@@ -204,7 +241,6 @@ async def authenticate_device(auth_data: DeviceAuthentication):
             "device_id": auth_data.device_id,
             "authenticated_at": timestamp,
             "proof_verified": True,
-            "blockchain": blockchain_result,
             "message": "Device authenticated successfully"
         }
     
@@ -790,13 +826,11 @@ async def get_system_metrics():
 # ============ Include router ============
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Include ML tamper detection router if available
+if ML_AVAILABLE:
+    app.include_router(ml_router, prefix="/api")
+    logger.info("ML tampering detection endpoints enabled")
+
 
 # Security headers middleware
 @app.middleware("http")
@@ -836,3 +870,4 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+

@@ -1,7 +1,29 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+// Platform-specific backend URL
+// Web: uses localhost (same computer)
+// Mobile: uses local IP address (192.168.1.71)
+const getBackendURL = () => {
+  // Always use localhost when running on web
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8001';
+  }
+
+  const envURL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
+
+  if (envURL) {
+    return envURL;
+  }
+
+  // Fallback for mobile
+  return 'http://192.168.1.71:8001';
+};
+
+const BACKEND_URL = getBackendURL();
+
+console.log('[API] Backend URL:', BACKEND_URL);
 
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,
